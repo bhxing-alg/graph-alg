@@ -1,0 +1,2303 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graph to Quiver Algebra</title>
+  <style>
+    :root {
+      --bg: #f5f9ff;
+      --panel: #ffffff;
+      --ink: #1d1f23;
+      --muted: #697177;
+      --line: #d5e5f5;
+      --soft: #edf6ff;
+      --accent: #4aa3df;
+      --accent-strong: #1f6fb2;
+      --accent-soft: #dff0ff;
+      --arrow: #2f80c9;
+      --edge: #4f5960;
+      --warn: #b15f16;
+      --shadow: 0 16px 40px rgba(29, 31, 35, 0.08);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.92);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      backdrop-filter: blur(8px);
+    }
+
+    .title-block {
+      min-width: 220px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 720;
+    }
+
+    .subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: var(--radius);
+      min-height: 34px;
+      padding: 0 12px;
+      cursor: pointer;
+      transition: border-color 150ms ease, background 150ms ease, color 150ms ease, transform 150ms ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .btn:disabled {
+      color: #a4adb2;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(440px, 0.9fr) minmax(500px, 1.1fr);
+      align-items: start;
+      gap: 16px;
+      padding: 16px;
+      min-height: 0;
+    }
+
+    .editor-panel,
+    .output-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .editor-panel {
+      display: flex;
+      flex-direction: column;
+      height: min(640px, calc(100vh - 104px));
+      min-height: 460px;
+      overflow: hidden;
+    }
+
+    .canvas-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfc;
+    }
+
+    .stats {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #ffffff;
+      white-space: nowrap;
+    }
+
+    .status {
+      color: var(--accent-strong);
+      font-size: 13px;
+      text-align: right;
+      min-width: 180px;
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      min-height: 340px;
+      position: relative;
+      background:
+        linear-gradient(90deg, rgba(74, 163, 223, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(74, 163, 223, 0.08) 1px, transparent 1px),
+        #fbfcfc;
+      background-size: 40px 40px;
+    }
+
+    #graphCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      background: #fbfcfc;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 18px;
+      height: 3px;
+      border-radius: 4px;
+      background: var(--edge);
+    }
+
+    .swatch.arrow {
+      background: var(--arrow);
+    }
+
+    .swatch.vertex {
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--accent);
+      border-radius: 999px;
+      background: #ffffff;
+    }
+
+    .output-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+      max-height: min(720px, calc(100vh - 104px));
+      min-height: 520px;
+    }
+
+    .output-scroll {
+      flex: 1;
+      overflow: auto;
+      padding: 0;
+    }
+
+    .output-section {
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .output-section:last-child {
+      border-bottom: 0;
+    }
+
+    details.output-section {
+      padding: 0;
+    }
+
+    details.output-section > summary {
+      list-style: none;
+      cursor: pointer;
+      margin-bottom: 0;
+      padding: 14px;
+    }
+
+    details.output-section > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.output-section[open] > summary {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .collapsible-body {
+      padding: 14px;
+    }
+
+    .section-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .toggle-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--accent-strong);
+      background: var(--accent-soft);
+      font-weight: 800;
+      line-height: 1;
+      flex: 0 0 auto;
+    }
+
+    .toggle-icon::before {
+      content: "+";
+    }
+
+    details.output-section[open] .toggle-icon::before {
+      content: "-";
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 720;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .quiver-box {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #fbfcfc;
+      height: 340px;
+    }
+
+    #quiverSvg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .empty {
+      color: var(--muted);
+      padding: 10px 0;
+      font-size: 13px;
+    }
+
+    .code-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-size: 13px;
+    }
+
+    .code-list li {
+      display: grid;
+      gap: 4px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfc;
+    }
+
+    code,
+    .formula {
+      font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    code {
+      color: #243034;
+      background: var(--soft);
+      border-radius: 6px;
+      padding: 2px 5px;
+    }
+
+    .rule {
+      margin: 0 0 8px;
+      color: #30363a;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .relation-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .relation-item {
+      border-left: 3px solid var(--accent);
+      padding: 7px 8px;
+      background: #fbfcfc;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .warn {
+      color: var(--warn);
+    }
+
+    .search-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .input-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .number-input {
+      width: 112px;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 0 8px;
+      color: var(--ink);
+      background: #ffffff;
+      font: inherit;
+    }
+
+    .result-box {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfc;
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .result-box:empty {
+      display: none;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 340px;
+      font-size: 12px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: 7px;
+      vertical-align: top;
+      text-align: left;
+      max-width: 180px;
+    }
+
+    th {
+      background: var(--soft);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    td:last-child,
+    th:last-child {
+      border-right: 0;
+    }
+
+    .cell-muted {
+      color: var(--muted);
+    }
+
+    .formula {
+      width: 100%;
+      min-height: 150px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px;
+      background: #fbfcfc;
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .toolbar {
+        justify-content: flex-start;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .editor-panel,
+      .output-panel {
+        height: auto;
+        max-height: none;
+        min-height: auto;
+      }
+
+      .canvas-wrap {
+        height: 48vh;
+        min-height: 300px;
+      }
+
+      .quiver-box {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="title-block">
+        <h1>Graph to Quiver Algebra</h1>
+        <p class="subtitle">Click empty space to add vertices. Click two different vertices to add an undirected edge.</p>
+      </div>
+      <div class="toolbar" aria-label="Canvas actions">
+        <button class="btn" id="undoBtn" type="button">Undo</button>
+        <button class="btn" id="deleteBtn" type="button">Delete Selection</button>
+        <button class="btn" id="sampleBtn" type="button">Square Sample</button>
+        <button class="btn" id="enneaLeftBtn" type="button">Enneahedron A</button>
+        <button class="btn" id="enneaRightBtn" type="button">Enneahedron B</button>
+        <button class="btn" id="clearBtn" type="button">Clear</button>
+        <button class="btn" id="copyBtn" type="button">Copy Output</button>
+        <button class="btn primary" id="saveBtn" type="button">Save Algebra</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="editor-panel" aria-label="Graph editor">
+        <div class="canvas-head">
+          <div class="stats">
+            <span class="pill">Vertices <strong id="vertexCount">0</strong></span>
+            <span class="pill">Edges <strong id="edgeCount">0</strong></span>
+            <span class="pill">Components <strong id="componentCount">0</strong></span>
+          </div>
+          <div class="status" id="statusText">Ready to add vertex 1.</div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="graphCanvas" width="960" height="640" aria-label="Graph canvas"></canvas>
+        </div>
+        <div class="legend">
+          <span><i class="swatch vertex"></i>Vertex</span>
+          <span><i class="swatch"></i>Graph edge</span>
+          <span><i class="swatch arrow"></i>Two quiver arrows</span>
+          <span>For an edge <code>e</code>, the arrow <code>e</code> goes from the smaller vertex to the larger vertex; <code>e'</code> goes back.</span>
+        </div>
+      </section>
+
+      <aside class="output-panel" aria-label="Quiver algebra output">
+        <div class="output-scroll">
+          <section class="output-section">
+            <div class="section-head">
+              <h2>Quiver Preview</h2>
+              <span class="small" id="quiverSummary">Q0 = empty, Q1 = empty</span>
+            </div>
+            <div class="quiver-box">
+              <svg id="quiverSvg" viewBox="0 0 960 640" role="img" aria-label="Quiver preview"></svg>
+            </div>
+          </section>
+
+          <details class="output-section collapsible">
+            <summary class="section-head">
+              <span class="section-title"><span class="toggle-icon" aria-hidden="true"></span><h2>Commutative Relations</h2></span>
+              <span class="small" id="relationSummary">Waiting for input</span>
+            </summary>
+            <div class="collapsible-body">
+              <p class="rule">
+                Zero rule: a directed path from <code>i</code> to <code>j</code> is nonzero only if its length is the graph distance <code>d(i,j)</code>.
+                Every nontrivial closed path is zero.
+              </p>
+              <p class="rule">
+                Commutative rule: all shortest directed paths with the same ordered endpoints are equal.
+              </p>
+              <div id="relationList"></div>
+            </div>
+          </details>
+
+          <details class="output-section collapsible">
+            <summary class="section-head">
+              <span class="section-title"><span class="toggle-icon" aria-hidden="true"></span><h2>Reduced Grobner Basis</h2></span>
+              <span class="small" id="gbSummary">Waiting for input</span>
+            </summary>
+            <div class="collapsible-body">
+              <div id="gbList"></div>
+            </div>
+          </details>
+
+          <details class="output-section collapsible">
+            <summary class="section-head">
+              <span class="section-title"><span class="toggle-icon" aria-hidden="true"></span><h2>Quadratic Order Search</h2></span>
+              <span class="small" id="quadraticSearchSummary">Click search to test orders</span>
+            </summary>
+            <div class="collapsible-body">
+              <div class="search-controls">
+                <button class="btn primary" id="searchQuadraticBtn" type="button">Search Quadratic Order</button>
+                <label class="input-label" for="orderLimitInput">
+                  Max orders
+                  <input class="number-input" id="orderLimitInput" type="number" min="1" step="1" value="50000">
+                </label>
+              </div>
+              <div class="result-box" id="quadraticSearchResult"></div>
+            </div>
+          </details>
+
+          <details class="output-section collapsible">
+            <summary class="section-head">
+              <span class="section-title"><span class="toggle-icon" aria-hidden="true"></span><h2>Self-Injective Test</h2></span>
+              <span class="small" id="selfInjectiveSummary">Waiting for input</span>
+            </summary>
+            <div class="collapsible-body">
+              <div id="selfInjectiveResult"></div>
+            </div>
+          </details>
+
+          <details class="output-section collapsible">
+            <summary class="section-head">
+              <span class="section-title"><span class="toggle-icon" aria-hidden="true"></span><h2>Nonzero Path Classes</h2></span>
+              <span class="small">One representative for each ordered endpoint pair</span>
+            </summary>
+            <div class="collapsible-body">
+              <div id="basisTable"></div>
+            </div>
+          </details>
+
+          <details class="output-section collapsible">
+            <summary class="section-head">
+              <span class="section-title"><span class="toggle-icon" aria-hidden="true"></span><h2>Formal Text</h2></span>
+              <span class="small">Copy-ready output</span>
+            </summary>
+            <div class="collapsible-body">
+              <textarea class="formula" id="formalText" readonly></textarea>
+            </div>
+          </details>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const CANVAS_W = 960;
+      const CANVAS_H = 640;
+      const EDITOR_VERTEX_R = 18;
+      const QUIVER_VERTEX_R = 28;
+      const MAX_HISTORY = 80;
+      const MAX_PATHS_PER_PAIR = 80;
+      const MAX_GB_ITEMS_SHOWN = 180;
+
+      const canvas = document.getElementById("graphCanvas");
+      const ctx = canvas.getContext("2d");
+      const vertexCountEl = document.getElementById("vertexCount");
+      const edgeCountEl = document.getElementById("edgeCount");
+      const componentCountEl = document.getElementById("componentCount");
+      const statusText = document.getElementById("statusText");
+      const undoBtn = document.getElementById("undoBtn");
+      const deleteBtn = document.getElementById("deleteBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const sampleBtn = document.getElementById("sampleBtn");
+      const enneaLeftBtn = document.getElementById("enneaLeftBtn");
+      const enneaRightBtn = document.getElementById("enneaRightBtn");
+      const copyBtn = document.getElementById("copyBtn");
+      const saveBtn = document.getElementById("saveBtn");
+      const quiverSvg = document.getElementById("quiverSvg");
+      const quiverSummary = document.getElementById("quiverSummary");
+      const relationList = document.getElementById("relationList");
+      const relationSummary = document.getElementById("relationSummary");
+      const gbList = document.getElementById("gbList");
+      const gbSummary = document.getElementById("gbSummary");
+      const searchQuadraticBtn = document.getElementById("searchQuadraticBtn");
+      const orderLimitInput = document.getElementById("orderLimitInput");
+      const quadraticSearchSummary = document.getElementById("quadraticSearchSummary");
+      const quadraticSearchResult = document.getElementById("quadraticSearchResult");
+      const selfInjectiveSummary = document.getElementById("selfInjectiveSummary");
+      const selfInjectiveResult = document.getElementById("selfInjectiveResult");
+      const basisTable = document.getElementById("basisTable");
+      const formalText = document.getElementById("formalText");
+
+      const state = {
+        vertices: [],
+        edges: [],
+        selectedVertexId: null,
+        selectedEdgeId: null,
+        hover: null,
+        nextVertexId: 1,
+        nextEdgeIndex: 0,
+        history: [],
+        lastQuadraticSearchSignature: null,
+        quadraticSearchRunning: false,
+        notice: "Ready to add vertex 1."
+      };
+
+      let pointer = null;
+
+      function cloneGraphState() {
+        return JSON.stringify({
+          vertices: state.vertices,
+          edges: state.edges,
+          nextVertexId: state.nextVertexId,
+          nextEdgeIndex: state.nextEdgeIndex
+        });
+      }
+
+      function pushHistory() {
+        state.history.push(cloneGraphState());
+        if (state.history.length > MAX_HISTORY) {
+          state.history.shift();
+        }
+      }
+
+      function restoreGraphState(snapshot) {
+        const data = JSON.parse(snapshot);
+        state.vertices = data.vertices;
+        state.edges = data.edges;
+        state.nextVertexId = data.nextVertexId;
+        state.nextEdgeIndex = data.nextEdgeIndex;
+        state.selectedVertexId = null;
+        state.selectedEdgeId = null;
+        state.hover = null;
+        state.notice = "Undid the last step.";
+        update();
+      }
+
+      function edgeLabel(index) {
+        const letters = "abcdefghijklmnopqrstuvwxyz";
+        if (index < letters.length) return letters[index];
+        return `a_${index - letters.length + 1}`;
+      }
+
+      function pointFromEvent(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: ((event.clientX - rect.left) / rect.width) * CANVAS_W,
+          y: ((event.clientY - rect.top) / rect.height) * CANVAS_H
+        };
+      }
+
+      function distance(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      }
+
+      function vertexById(id) {
+        return state.vertices.find((vertex) => vertex.id === id) || null;
+      }
+
+      function edgeById(id) {
+        return state.edges.find((edge) => edge.id === id) || null;
+      }
+
+      function normalizeEdgeKey(u, v) {
+        return u < v ? `${u}-${v}` : `${v}-${u}`;
+      }
+
+      function findEdgeBetween(u, v) {
+        const key = normalizeEdgeKey(u, v);
+        return state.edges.find((edge) => normalizeEdgeKey(edge.u, edge.v) === key) || null;
+      }
+
+      function vertexAt(point) {
+        for (let i = state.vertices.length - 1; i >= 0; i -= 1) {
+          const vertex = state.vertices[i];
+          if (distance(point, vertex) <= EDITOR_VERTEX_R + 4) return vertex;
+        }
+        return null;
+      }
+
+      function distanceToSegment(point, a, b) {
+        const abx = b.x - a.x;
+        const aby = b.y - a.y;
+        const apx = point.x - a.x;
+        const apy = point.y - a.y;
+        const len2 = abx * abx + aby * aby;
+        if (len2 === 0) return distance(point, a);
+        const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / len2));
+        const projection = { x: a.x + abx * t, y: a.y + aby * t };
+        return distance(point, projection);
+      }
+
+      function edgeAt(point) {
+        for (let i = state.edges.length - 1; i >= 0; i -= 1) {
+          const edge = state.edges[i];
+          const u = vertexById(edge.u);
+          const v = vertexById(edge.v);
+          if (!u || !v) continue;
+          const nearEndpoint = distance(point, u) < EDITOR_VERTEX_R + 8 || distance(point, v) < EDITOR_VERTEX_R + 8;
+          if (!nearEndpoint && distanceToSegment(point, u, v) <= 8) return edge;
+        }
+        return null;
+      }
+
+      function addVertex(point) {
+        pushHistory();
+        const x = Math.max(EDITOR_VERTEX_R + 8, Math.min(CANVAS_W - EDITOR_VERTEX_R - 8, point.x));
+        const y = Math.max(EDITOR_VERTEX_R + 8, Math.min(CANVAS_H - EDITOR_VERTEX_R - 8, point.y));
+        const vertex = { id: state.nextVertexId, x, y };
+        state.vertices.push(vertex);
+        state.nextVertexId += 1;
+        state.selectedVertexId = null;
+        state.selectedEdgeId = null;
+        state.notice = `Added vertex ${vertex.id}.`;
+        update();
+      }
+
+      function addEdge(u, v) {
+        if (u === v) return;
+        const existing = findEdgeBetween(u, v);
+        if (existing) {
+          state.selectedVertexId = null;
+          state.selectedEdgeId = existing.id;
+          state.notice = `Edge ${u}-${v} already exists as ${existing.label}.`;
+          update();
+          return;
+        }
+        pushHistory();
+        const label = edgeLabel(state.nextEdgeIndex);
+        state.edges.push({
+          id: `edge-${state.nextEdgeIndex}`,
+          index: state.nextEdgeIndex,
+          label,
+          u,
+          v
+        });
+        state.nextEdgeIndex += 1;
+        state.selectedVertexId = null;
+        state.selectedEdgeId = null;
+        state.notice = `Added edge ${label}: ${u}-${v}.`;
+        update();
+      }
+
+      function handleVertexClick(id) {
+        state.selectedEdgeId = null;
+        if (state.selectedVertexId === null) {
+          state.selectedVertexId = id;
+          state.notice = `Selected vertex ${id}. Choose another vertex to add an edge.`;
+          update();
+          return;
+        }
+        if (state.selectedVertexId === id) {
+          state.selectedVertexId = null;
+          state.notice = `Unselected vertex ${id}.`;
+          update();
+          return;
+        }
+        const from = state.selectedVertexId;
+        addEdge(from, id);
+      }
+
+      function deleteSelected() {
+        if (state.selectedVertexId !== null) {
+          const id = state.selectedVertexId;
+          pushHistory();
+          state.vertices = state.vertices.filter((vertex) => vertex.id !== id);
+          state.edges = state.edges.filter((edge) => edge.u !== id && edge.v !== id);
+          state.selectedVertexId = null;
+          state.selectedEdgeId = null;
+          state.notice = `Deleted vertex ${id} and its incident edges.`;
+          update();
+          return;
+        }
+        if (state.selectedEdgeId !== null) {
+          const edge = edgeById(state.selectedEdgeId);
+          pushHistory();
+          state.edges = state.edges.filter((item) => item.id !== state.selectedEdgeId);
+          state.selectedEdgeId = null;
+          state.notice = edge ? `Deleted edge ${edge.label}.` : "Deleted the selected edge.";
+          update();
+        }
+      }
+
+      function clearGraph() {
+        if (state.vertices.length === 0 && state.edges.length === 0) return;
+        pushHistory();
+        state.vertices = [];
+        state.edges = [];
+        state.nextVertexId = 1;
+        state.nextEdgeIndex = 0;
+        state.selectedVertexId = null;
+        state.selectedEdgeId = null;
+        state.hover = null;
+        state.notice = "Canvas cleared.";
+        update();
+      }
+
+      function loadSample() {
+        pushHistory();
+        state.vertices = [
+          { id: 1, x: 260, y: 190 },
+          { id: 2, x: 530, y: 160 },
+          { id: 3, x: 300, y: 430 },
+          { id: 4, x: 600, y: 405 }
+        ];
+        state.edges = [
+          { id: "edge-0", index: 0, label: "a", u: 1, v: 2 },
+          { id: "edge-1", index: 1, label: "b", u: 2, v: 4 },
+          { id: "edge-2", index: 2, label: "c", u: 1, v: 3 },
+          { id: "edge-3", index: 3, label: "d", u: 3, v: 4 }
+        ];
+        state.nextVertexId = 5;
+        state.nextEdgeIndex = 4;
+        state.selectedVertexId = null;
+        state.selectedEdgeId = null;
+        state.notice = "Loaded a sample with two shortest paths.";
+        update();
+      }
+
+      function loadGraphExample(vertices, edgePairs, notice) {
+        pushHistory();
+        state.vertices = vertices.map((vertex) => ({ ...vertex }));
+        state.edges = edgePairs.map(([u, v], index) => ({
+          id: `edge-${index}`,
+          index,
+          label: edgeLabel(index),
+          u,
+          v
+        }));
+        state.nextVertexId = Math.max(0, ...vertices.map((vertex) => vertex.id)) + 1;
+        state.nextEdgeIndex = edgePairs.length;
+        state.selectedVertexId = null;
+        state.selectedEdgeId = null;
+        state.hover = null;
+        state.notice = notice;
+        update();
+      }
+
+      function loadEnneahedronLeft() {
+        loadGraphExample(
+          [
+            { id: 1, x: 95, y: 90 },
+            { id: 2, x: 305, y: 150 },
+            { id: 3, x: 430, y: 230 },
+            { id: 4, x: 360, y: 390 },
+            { id: 5, x: 560, y: 465 },
+            { id: 6, x: 795, y: 90 },
+            { id: 7, x: 795, y: 555 },
+            { id: 8, x: 105, y: 535 }
+          ],
+          [
+            [1, 6], [6, 7], [7, 8], [8, 1],
+            [1, 2], [2, 3], [2, 8], [2, 6],
+            [3, 4], [3, 6], [4, 5], [4, 8],
+            [5, 6], [5, 7], [5, 8]
+          ],
+          "Loaded enneahedron example A."
+        );
+      }
+
+      function loadEnneahedronRight() {
+        loadGraphExample(
+          [
+            { id: 1, x: 110, y: 110 },
+            { id: 2, x: 110, y: 560 },
+            { id: 3, x: 315, y: 205 },
+            { id: 4, x: 250, y: 385 },
+            { id: 5, x: 510, y: 310 },
+            { id: 6, x: 630, y: 465 },
+            { id: 7, x: 830, y: 125 },
+            { id: 8, x: 805, y: 560 }
+          ],
+          [
+            [1, 2], [1, 7], [7, 8], [2, 8],
+            [1, 3], [3, 4], [4, 2], [3, 5],
+            [3, 7], [5, 7], [5, 6], [3, 6],
+            [4, 6], [6, 2], [6, 8]
+          ],
+          "Loaded enneahedron example B."
+        );
+      }
+
+      function drawGrid() {
+        ctx.save();
+        ctx.strokeStyle = "rgba(74, 163, 223, 0.12)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= CANVAS_W; x += 40) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, CANVAS_H);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= CANVAS_H; y += 40) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(CANVAS_W, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawEdges() {
+        state.edges.forEach((edge) => {
+          const u = vertexById(edge.u);
+          const v = vertexById(edge.v);
+          if (!u || !v) return;
+          const selected = state.selectedEdgeId === edge.id;
+          const hovered = state.hover && state.hover.type === "edge" && state.hover.id === edge.id;
+          ctx.save();
+          ctx.strokeStyle = selected ? "#4aa3df" : hovered ? "#2f80c9" : "#4f5960";
+          ctx.lineWidth = selected || hovered ? 3 : 2;
+          ctx.beginPath();
+          ctx.moveTo(u.x, u.y);
+          ctx.lineTo(v.x, v.y);
+          ctx.stroke();
+
+          const midX = (u.x + v.x) / 2;
+          const midY = (u.y + v.y) / 2;
+          drawEdgeLabel(edge.label, midX, midY, selected || hovered);
+          ctx.restore();
+        });
+      }
+
+      function drawEdgeLabel(label, x, y, active) {
+        ctx.save();
+        ctx.font = "700 14px Cascadia Mono, Consolas, monospace";
+        const metrics = ctx.measureText(label);
+        const width = metrics.width + 16;
+        const height = 24;
+        ctx.fillStyle = active ? "#dff0ff" : "#ffffff";
+        ctx.strokeStyle = active ? "#4aa3df" : "#d8e0e4";
+        ctx.lineWidth = 1.2;
+        roundedRect(ctx, x - width / 2, y - height / 2, width, height, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#1d1f23";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, x, y + 0.5);
+        ctx.restore();
+      }
+
+      function drawVertices() {
+        state.vertices.forEach((vertex) => {
+          const selected = state.selectedVertexId === vertex.id;
+          const hovered = state.hover && state.hover.type === "vertex" && state.hover.id === vertex.id;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(vertex.x, vertex.y, EDITOR_VERTEX_R, 0, Math.PI * 2);
+          ctx.fillStyle = selected ? "#2f80c9" : "#8ccdf7";
+          ctx.fill();
+          ctx.lineWidth = selected ? 4 : hovered ? 3 : 2;
+          ctx.strokeStyle = selected ? "#1f6fb2" : hovered ? "#2f80c9" : "#4aa3df";
+          ctx.stroke();
+
+          if (selected) {
+            ctx.beginPath();
+            ctx.arc(vertex.x, vertex.y, EDITOR_VERTEX_R + 6, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(74, 163, 223, 0.28)";
+            ctx.lineWidth = 5;
+            ctx.stroke();
+          }
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "720 15px Inter, Segoe UI, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(String(vertex.id), vertex.x, vertex.y + 0.5);
+          ctx.restore();
+        });
+      }
+
+      function roundedRect(context, x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        context.beginPath();
+        context.moveTo(x + r, y);
+        context.arcTo(x + width, y, x + width, y + height, r);
+        context.arcTo(x + width, y + height, x, y + height, r);
+        context.arcTo(x, y + height, x, y, r);
+        context.arcTo(x, y, x + width, y, r);
+        context.closePath();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+        drawGrid();
+        drawEdges();
+        drawVertices();
+      }
+
+      function sortedVertices() {
+        return [...state.vertices].sort((a, b) => a.id - b.id);
+      }
+
+      function sortedEdges() {
+        return [...state.edges].sort((a, b) => a.index - b.index);
+      }
+
+      function buildAdjacency() {
+        const adj = new Map();
+        sortedVertices().forEach((vertex) => adj.set(vertex.id, []));
+        sortedEdges().forEach((edge) => {
+          if (!adj.has(edge.u) || !adj.has(edge.v)) return;
+          adj.get(edge.u).push({ to: edge.v, edge });
+          adj.get(edge.v).push({ to: edge.u, edge });
+        });
+        adj.forEach((items) => items.sort((a, b) => a.to - b.to || a.edge.index - b.edge.index));
+        return adj;
+      }
+
+      function connectedComponentCount(adj) {
+        const vertices = sortedVertices();
+        if (vertices.length === 0) return 0;
+        const seen = new Set();
+        let count = 0;
+        vertices.forEach((vertex) => {
+          if (seen.has(vertex.id)) return;
+          count += 1;
+          const queue = [vertex.id];
+          seen.add(vertex.id);
+          while (queue.length > 0) {
+            const current = queue.shift();
+            (adj.get(current) || []).forEach((item) => {
+              if (!seen.has(item.to)) {
+                seen.add(item.to);
+                queue.push(item.to);
+              }
+            });
+          }
+        });
+        return count;
+      }
+
+      function selfInjectiveCriterion(ids, adj) {
+        const tau = new Map();
+        const socles = new Map();
+
+        for (const source of ids) {
+          const dist = bfsDistances(source, adj);
+          const candidates = [];
+
+          for (const target of ids) {
+            const targetDistance = dist.get(target) ?? Infinity;
+            let hasFartherNeighbor = false;
+
+            for (const item of adj.get(target) || []) {
+              if (dist.get(item.to) === targetDistance + 1) {
+                hasFartherNeighbor = true;
+                break;
+              }
+            }
+
+            if (!hasFartherNeighbor) candidates.push(target);
+          }
+
+          socles.set(source, candidates);
+
+          if (candidates.length !== 1) {
+            return {
+              selfInjective: false,
+              reason: `soc(P_${source}) is not simple`,
+              failedVertex: source,
+              socleSimples: candidates.map((target) => `S_${target}`),
+              socles
+            };
+          }
+
+          tau.set(source, candidates[0]);
+        }
+
+        const image = new Set(tau.values());
+        if (image.size !== ids.length) {
+          const missing = ids.filter((id) => !image.has(id));
+          return {
+            selfInjective: false,
+            reason: "socles are simple but do not run through all simple modules",
+            tau,
+            missingSimples: missing.map((target) => `S_${target}`),
+            socles
+          };
+        }
+
+        return {
+          selfInjective: true,
+          nakayamaPermutation: tau,
+          socles
+        };
+      }
+
+      function bfsDistances(source, adj) {
+        const dist = new Map();
+        sortedVertices().forEach((vertex) => dist.set(vertex.id, Infinity));
+        dist.set(source, 0);
+        const queue = [source];
+        let head = 0;
+        while (head < queue.length) {
+          const current = queue[head];
+          head += 1;
+          (adj.get(current) || []).forEach((item) => {
+            if (dist.get(item.to) === Infinity) {
+              dist.set(item.to, dist.get(current) + 1);
+              queue.push(item.to);
+            }
+          });
+        }
+        return dist;
+      }
+
+      function countShortestPaths(source, target, dist, adj) {
+        const counts = new Map([[source, 1]]);
+        const ordered = sortedVertices()
+          .map((vertex) => vertex.id)
+          .filter((id) => dist.get(id) !== Infinity && dist.get(id) <= dist.get(target))
+          .sort((a, b) => dist.get(a) - dist.get(b) || a - b);
+
+        ordered.forEach((id) => {
+          const count = counts.get(id) || 0;
+          if (count === 0) return;
+          (adj.get(id) || []).forEach((item) => {
+            if (dist.get(item.to) === dist.get(id) + 1) {
+              const nextCount = Math.min(1000000, (counts.get(item.to) || 0) + count);
+              counts.set(item.to, nextCount);
+            }
+          });
+        });
+        return counts.get(target) || 0;
+      }
+
+      function enumerateShortestPaths(source, target, dist, adj, cap) {
+        const paths = [];
+        const stack = [source];
+        const targetDistance = dist.get(target);
+
+        function dfs(current) {
+          if (paths.length >= cap) return;
+          if (current === target) {
+            paths.push([...stack]);
+            return;
+          }
+          (adj.get(current) || []).forEach((item) => {
+            if (paths.length >= cap) return;
+            if (dist.get(item.to) === dist.get(current) + 1 && dist.get(item.to) <= targetDistance) {
+              stack.push(item.to);
+              dfs(item.to);
+              stack.pop();
+            }
+          });
+        }
+
+        dfs(source);
+        return paths;
+      }
+
+      function getShortestPathData(adj) {
+        const ids = sortedVertices().map((vertex) => vertex.id);
+        const pairs = [];
+        const distances = new Map();
+
+        ids.forEach((source) => {
+          const dist = bfsDistances(source, adj);
+          distances.set(source, dist);
+          ids.forEach((target) => {
+            if (source === target) return;
+            const d = dist.get(target);
+            if (d === Infinity) {
+              pairs.push({ source, target, distance: Infinity, count: 0, paths: [], truncated: false });
+              return;
+            }
+            const count = countShortestPaths(source, target, dist, adj);
+            const paths = enumerateShortestPaths(source, target, dist, adj, MAX_PATHS_PER_PAIR);
+            pairs.push({
+              source,
+              target,
+              distance: d,
+              count,
+              paths,
+              truncated: count > paths.length
+            });
+          });
+        });
+
+        return { ids, pairs, distances };
+      }
+
+      function arrowLabel(edge, from, to) {
+        const low = Math.min(edge.u, edge.v);
+        const high = Math.max(edge.u, edge.v);
+        if (from === low && to === high) return edge.label;
+        return `${edge.label}'`;
+      }
+
+      function pathLabel(path) {
+        if (path.length === 1) return `1_${path[0]}`;
+        const labels = [];
+        for (let i = 0; i < path.length - 1; i += 1) {
+          const edge = findEdgeBetween(path[i], path[i + 1]);
+          labels.push(edge ? arrowLabel(edge, path[i], path[i + 1]) : "?");
+        }
+        return labels.join(" * ");
+      }
+
+      function pathLabelForExport(path) {
+        if (path.length === 1) return `1_${path[0]}`;
+        const labels = [];
+        for (let i = 0; i < path.length - 1; i += 1) {
+          const edge = findEdgeBetween(path[i], path[i + 1]);
+          labels.push(edge ? arrowLabel(edge, path[i], path[i + 1]) : "?");
+        }
+        return labels.join(" ");
+      }
+
+      function pathVertices(path) {
+        return path.join(" -> ");
+      }
+
+      function pathKey(path) {
+        return path.join("-");
+      }
+
+      function arrowKey(edge, from, to) {
+        return `${edge.id}:${from}->${to}`;
+      }
+
+      function getArrowDescriptors() {
+        const arrows = [];
+        sortedEdges().forEach((edge) => {
+          const low = Math.min(edge.u, edge.v);
+          const high = Math.max(edge.u, edge.v);
+          arrows.push({
+            edge,
+            from: low,
+            to: high,
+            key: arrowKey(edge, low, high),
+            label: edge.label
+          });
+          arrows.push({
+            edge,
+            from: high,
+            to: low,
+            key: arrowKey(edge, high, low),
+            label: `${edge.label}'`
+          });
+        });
+        return arrows;
+      }
+
+      function buildRankMap(order) {
+        return new Map(order.map((arrow, index) => [arrow.key, index]));
+      }
+
+      function getDefaultRankMap() {
+        return buildRankMap(getArrowDescriptors());
+      }
+
+      function arrowRank(edge, from, to, rankMap = null) {
+        if (rankMap) return rankMap.get(arrowKey(edge, from, to)) ?? Infinity;
+        const low = Math.min(edge.u, edge.v);
+        const high = Math.max(edge.u, edge.v);
+        return from === low && to === high ? edge.index * 2 : edge.index * 2 + 1;
+      }
+
+      function comparePaths(left, right, rankMap = null) {
+        const leftLength = left.length - 1;
+        const rightLength = right.length - 1;
+        if (leftLength !== rightLength) return leftLength - rightLength;
+
+        for (let i = 0; i < left.length - 1; i += 1) {
+          const leftEdge = findEdgeBetween(left[i], left[i + 1]);
+          const rightEdge = findEdgeBetween(right[i], right[i + 1]);
+          const leftRank = leftEdge ? arrowRank(leftEdge, left[i], left[i + 1], rankMap) : Infinity;
+          const rightRank = rightEdge ? arrowRank(rightEdge, right[i], right[i + 1], rankMap) : Infinity;
+          if (leftRank !== rightRank) return rightRank - leftRank;
+        }
+
+        return 0;
+      }
+
+      function getDirectedArrows(rankMap = null) {
+        const arrows = [];
+        sortedEdges().forEach((edge) => {
+          const low = Math.min(edge.u, edge.v);
+          const high = Math.max(edge.u, edge.v);
+          arrows.push({ from: low, to: high, edge, rank: arrowRank(edge, low, high, rankMap) });
+          arrows.push({ from: high, to: low, edge, rank: arrowRank(edge, high, low, rankMap) });
+        });
+        return arrows.sort((a, b) => a.from - b.from || b.rank - a.rank || a.to - b.to);
+      }
+
+      function getDistance(shortestData, source, target) {
+        if (source === target) return 0;
+        return shortestData.distances.get(source)?.get(target) ?? Infinity;
+      }
+
+      function buildNormalPath(source, target, shortestData, adj, rankMap = null) {
+        const distanceToTarget = getDistance(shortestData, source, target);
+        if (distanceToTarget === Infinity) return null;
+        if (source === target) return [source];
+
+        const path = [source];
+        let current = source;
+        let remaining = distanceToTarget;
+        while (remaining > 0) {
+          const candidates = (adj.get(current) || [])
+            .filter((item) => getDistance(shortestData, item.to, target) === remaining - 1)
+            .map((item) => ({
+              to: item.to,
+              rank: arrowRank(item.edge, current, item.to, rankMap)
+            }))
+            .sort((a, b) => b.rank - a.rank || a.to - b.to);
+
+          if (candidates.length === 0) return null;
+          current = candidates[0].to;
+          path.push(current);
+          remaining -= 1;
+        }
+        return path;
+      }
+
+      function buildNormalPathMap(shortestData, adj, rankMap = null) {
+        const normalMap = new Map();
+        shortestData.ids.forEach((source) => {
+          shortestData.ids.forEach((target) => {
+            const normalPath = buildNormalPath(source, target, shortestData, adj, rankMap);
+            if (normalPath) normalMap.set(`${source}-${target}`, normalPath);
+          });
+        });
+        return normalMap;
+      }
+
+      function isNormalPath(path, normalMap) {
+        const normalPath = normalMap.get(`${path[0]}-${path[path.length - 1]}`);
+        return Boolean(normalPath) && pathKey(normalPath) === pathKey(path);
+      }
+
+      function allProperSubpathsNormal(path, normalMap) {
+        for (let start = 0; start < path.length; start += 1) {
+          for (let end = start + 1; end < path.length; end += 1) {
+            if (start === 0 && end === path.length - 1) continue;
+            const subpath = path.slice(start, end + 1);
+            if (!isNormalPath(subpath, normalMap)) return false;
+          }
+        }
+        return true;
+      }
+
+      function getGrobnerBasisData(shortestData, adj, rankMap = null) {
+        const normalMap = buildNormalPathMap(shortestData, adj, rankMap);
+        const outgoing = new Map();
+        getDirectedArrows(rankMap).forEach((arrow) => {
+          if (!outgoing.has(arrow.from)) outgoing.set(arrow.from, []);
+          outgoing.get(arrow.from).push(arrow);
+        });
+
+        let maxDistance = 0;
+        shortestData.pairs.forEach((pair) => {
+          if (pair.distance !== Infinity) maxDistance = Math.max(maxDistance, pair.distance);
+        });
+
+        const queue = shortestData.ids.map((id) => [id]);
+        const seenNormal = new Set(queue.map(pathKey));
+        const seenLeading = new Set();
+        const gbItems = [];
+
+        while (queue.length > 0) {
+          const path = queue.shift();
+          const last = path[path.length - 1];
+          (outgoing.get(last) || []).forEach((arrow) => {
+            const candidate = [...path, arrow.to];
+            const candidateKey = pathKey(candidate);
+
+            if (isNormalPath(candidate, normalMap)) {
+              if (!seenNormal.has(candidateKey)) {
+                seenNormal.add(candidateKey);
+                if (candidate.length - 1 <= maxDistance) queue.push(candidate);
+              }
+              return;
+            }
+
+            if (seenLeading.has(candidateKey) || !allProperSubpathsNormal(candidate, normalMap)) return;
+
+            const source = candidate[0];
+            const target = candidate[candidate.length - 1];
+            const pathDistance = getDistance(shortestData, source, target);
+            const isShortest = candidate.length - 1 === pathDistance;
+            const normalPath = normalMap.get(`${source}-${target}`) || null;
+            seenLeading.add(candidateKey);
+            gbItems.push({
+              leadingPath: candidate,
+              normalPath,
+              source,
+              target,
+              type: isShortest ? "tie" : "zero"
+            });
+          });
+        }
+
+        gbItems.sort((a, b) => -comparePaths(a.leadingPath, b.leadingPath, rankMap));
+        return { gbItems, normalMap };
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function renderRelations(shortestData, gbData) {
+        const connectedPairs = shortestData.pairs.filter((pair) => pair.distance !== Infinity);
+        const exchangePairs = connectedPairs.filter((pair) => pair.count > 1);
+        relationSummary.textContent = `${connectedPairs.length} ordered connected pairs; ${exchangePairs.length} pairs have commutative relations`;
+
+        if (state.vertices.length < 2 || connectedPairs.length === 0) {
+          relationList.innerHTML = '<div class="empty">Add at least one path between two distinct vertices to get nonzero path classes.</div>';
+          return;
+        }
+
+        const relationItems = [];
+        let omittedRelations = false;
+        exchangePairs.forEach((pair) => {
+          const normalPath = gbData.normalMap.get(`${pair.source}-${pair.target}`);
+          if (!normalPath) return;
+          pair.paths.forEach((path) => {
+            if (pathKey(path) === pathKey(normalPath)) return;
+            if (relationItems.length >= MAX_PATHS_PER_PAIR) {
+              omittedRelations = true;
+              return;
+            }
+            relationItems.push(`
+              <div class="relation-item">
+                <div><strong>${pair.source} -> ${pair.target}</strong>, d = ${pair.distance}</div>
+                <code>${escapeHtml(pathLabel(path))} - ${escapeHtml(pathLabel(normalPath))} = 0</code>
+                <div class="small">${escapeHtml(pathVertices(path))} equals ${escapeHtml(pathVertices(normalPath))}</div>
+              </div>
+            `);
+          });
+          if (pair.truncated) omittedRelations = true;
+        });
+
+        if (relationItems.length === 0) {
+          relationList.innerHTML = '<div class="empty">There are no commutative relations beyond the zero rule for this graph.</div>';
+          return;
+        }
+
+        const note = omittedRelations
+          ? '<div class="small warn">Some commutative relations are omitted from this panel because there are many shortest paths.</div>'
+          : "";
+        relationList.innerHTML = `<div class="relation-grid">${relationItems.join("")}</div>${note}`;
+      }
+
+      function renderGrobnerBasis(gbData) {
+        const zeroCount = gbData.gbItems.filter((item) => item.type === "zero").length;
+        const tieCount = gbData.gbItems.length - zeroCount;
+        gbSummary.textContent = `${gbData.gbItems.length} generators; length-lex order a > a' > b > b' > c > c' > ...`;
+
+        if (gbData.gbItems.length === 0) {
+          gbList.innerHTML = '<div class="empty">The reduced Grobner basis is empty for the current graph.</div>';
+          return;
+        }
+
+        const visibleItems = gbData.gbItems.slice(0, MAX_GB_ITEMS_SHOWN);
+        const items = visibleItems.map((item, index) => {
+          const leading = pathLabel(item.leadingPath);
+          const relation = item.type === "zero"
+            ? `${leading} = 0`
+            : `${leading} - ${pathLabel(item.normalPath)} = 0`;
+          const typeLabel = item.type === "zero" ? "zero path" : "shortest-path tie";
+          return `
+            <div class="relation-item">
+              <div><strong>g${index + 1}</strong> <span class="small">${item.source} -> ${item.target}; ${typeLabel}</span></div>
+              <code>${escapeHtml(relation)}</code>
+              <div class="small">LT = ${escapeHtml(leading)}; vertices ${escapeHtml(pathVertices(item.leadingPath))}</div>
+            </div>
+          `;
+        }).join("");
+        const note = gbData.gbItems.length > visibleItems.length
+          ? `<div class="small warn">Showing ${visibleItems.length} of ${gbData.gbItems.length} generators. The formal text below contains the full list.</div>`
+          : `<div class="small">${tieCount} shortest-path tie generators, ${zeroCount} zero-path generators.</div>`;
+        gbList.innerHTML = `<div class="relation-grid">${items}</div>${note}`;
+      }
+
+      function isQuadraticGrobnerBasis(gbData) {
+        return gbData.gbItems.every((item) => item.leadingPath.length - 1 <= 2);
+      }
+
+      function orderLabel(order) {
+        return order.map((arrow) => arrow.label).join(" > ");
+      }
+
+      function factorialBigInt(n) {
+        let value = 1n;
+        for (let i = 2n; i <= BigInt(n); i += 1n) value *= i;
+        return value;
+      }
+
+      function formatBigInt(value) {
+        const text = value.toString();
+        if (text.length <= 12) return text;
+        return `${text.slice(0, 6)}...${text.slice(-4)} (${text.length} digits)`;
+      }
+
+      function graphSignature() {
+        return JSON.stringify({
+          vertices: sortedVertices().map((vertex) => vertex.id),
+          edges: sortedEdges().map((edge) => [edge.u, edge.v, edge.index, edge.label])
+        });
+      }
+
+      function resetQuadraticSearchIfStale(signature) {
+        if (state.lastQuadraticSearchSignature === signature || state.quadraticSearchRunning) return;
+        quadraticSearchSummary.textContent = "Click search to test orders";
+        quadraticSearchResult.innerHTML = "";
+      }
+
+      function renderQuadraticSearchFound(order, gbData, tested, totalText) {
+        const items = gbData.gbItems.map((item, index) => {
+          const leading = pathLabel(item.leadingPath);
+          const relation = item.type === "zero"
+            ? `${leading} = 0`
+            : `${leading} - ${pathLabel(item.normalPath)} = 0`;
+          return `
+            <div class="relation-item">
+              <div><strong>g${index + 1}</strong> <span class="small">${item.source} -> ${item.target}</span></div>
+              <code>${escapeHtml(relation)}</code>
+              <div class="small">degree ${item.leadingPath.length - 1}; LT = ${escapeHtml(leading)}</div>
+            </div>
+          `;
+        }).join("");
+
+        quadraticSearchSummary.textContent = `Found after ${tested} orders`;
+        quadraticSearchResult.innerHTML = `
+          <div><strong>Quadratic order found.</strong></div>
+          <div class="small">Tested ${tested} of ${escapeHtml(totalText)} possible orders.</div>
+          <p class="rule"><code>${escapeHtml(orderLabel(order))}</code></p>
+          <div class="relation-grid">${items || '<div class="empty">The reduced Grobner basis is empty, hence quadratic.</div>'}</div>
+        `;
+      }
+
+      function renderQuadraticSearchMiss(tested, totalText, exhausted) {
+        quadraticSearchSummary.textContent = exhausted
+          ? `No quadratic order among ${tested} orders`
+          : `No hit in first ${tested} orders`;
+        quadraticSearchResult.innerHTML = exhausted
+          ? `No length-lex arrow order produced a quadratic reduced Grobner basis. Tested all ${escapeHtml(totalText)} orders.`
+          : `No quadratic order found before the max-order limit. Tested ${tested} of ${escapeHtml(totalText)} possible orders. Increase the limit to continue.`;
+      }
+
+      function renderSelfInjectiveTest(result) {
+        if (state.vertices.length === 0) {
+          selfInjectiveSummary.textContent = "No vertices";
+          selfInjectiveResult.innerHTML = '<div class="empty">Add vertices to test self-injectivity.</div>';
+          return;
+        }
+
+        const socleRows = [...result.socles.entries()]
+          .map(([source, targets]) => `
+            <tr>
+              <th>P_${source}</th>
+              <td>${targets.length ? targets.map((target) => `<code>S_${target}</code>`).join(", ") : '<span class="cell-muted">none</span>'}</td>
+            </tr>
+          `).join("");
+        const socleTable = `<div class="table-wrap"><table><tr><th>Projective</th><th>Socle simples</th></tr>${socleRows}</table></div>`;
+
+        if (result.selfInjective) {
+          const permutation = [...result.nakayamaPermutation.entries()]
+            .map(([source, target]) => `${source} -> ${target}`)
+            .join(", ");
+          selfInjectiveSummary.textContent = "Self-injective";
+          selfInjectiveResult.innerHTML = `
+            <div class="relation-item">
+              <strong>Self-injective.</strong>
+              <div class="small">Nakayama permutation: <code>${escapeHtml(permutation)}</code></div>
+            </div>
+            ${socleTable}
+          `;
+          return;
+        }
+
+        selfInjectiveSummary.textContent = "Not self-injective";
+        const detail = result.failedVertex
+          ? `<div class="small">Failed at <code>P_${result.failedVertex}</code>; socle candidates: ${result.socleSimples.map((item) => `<code>${escapeHtml(item)}</code>`).join(", ") || "none"}.</div>`
+          : `<div class="small">Missing simples: ${result.missingSimples.map((item) => `<code>${escapeHtml(item)}</code>`).join(", ")}.</div>`;
+        selfInjectiveResult.innerHTML = `
+          <div class="relation-item">
+            <strong>Not self-injective.</strong>
+            <div>${escapeHtml(result.reason)}</div>
+            ${detail}
+          </div>
+          ${socleTable}
+        `;
+      }
+
+      function swap(items, i, j) {
+        const temp = items[i];
+        items[i] = items[j];
+        items[j] = temp;
+      }
+
+      async function runQuadraticOrderSearch() {
+        if (state.quadraticSearchRunning) return;
+
+        const arrows = getArrowDescriptors();
+        const total = factorialBigInt(arrows.length);
+        const totalText = formatBigInt(total);
+        const parsedLimit = Number.parseInt(orderLimitInput.value, 10);
+        const maxOrders = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 50000;
+        const signature = graphSignature();
+        const adj = buildAdjacency();
+        const shortestData = getShortestPathData(adj);
+        const order = arrows.slice();
+        const counters = new Array(order.length).fill(0);
+
+        state.quadraticSearchRunning = true;
+        state.lastQuadraticSearchSignature = signature;
+        searchQuadraticBtn.disabled = true;
+        quadraticSearchSummary.textContent = `Searching 0 / ${totalText}`;
+        quadraticSearchResult.innerHTML = '<div>Testing length-lex arrow orders...</div>';
+
+        let tested = 0;
+        let exhausted = false;
+        let found = null;
+
+        function testCurrentOrder() {
+          tested += 1;
+          const rankMap = buildRankMap(order);
+          const gbData = getGrobnerBasisData(shortestData, adj, rankMap);
+          if (isQuadraticGrobnerBasis(gbData)) {
+            found = { order: order.slice(), gbData };
+            return true;
+          }
+          return false;
+        }
+
+        if (testCurrentOrder()) {
+          renderQuadraticSearchFound(found.order, found.gbData, tested, totalText);
+        } else {
+          let i = 0;
+          while (i < order.length && tested < maxOrders && !found) {
+            if (counters[i] < i) {
+              if (i % 2 === 0) swap(order, 0, i);
+              else swap(order, counters[i], i);
+
+              if (testCurrentOrder()) break;
+
+              counters[i] += 1;
+              i = 0;
+              if (tested % 100 === 0) {
+                quadraticSearchSummary.textContent = `Searching ${tested} / ${totalText}`;
+                await new Promise((resolve) => window.setTimeout(resolve, 0));
+              }
+            } else {
+              counters[i] = 0;
+              i += 1;
+            }
+          }
+          exhausted = i >= order.length;
+
+          if (found) renderQuadraticSearchFound(found.order, found.gbData, tested, totalText);
+          else renderQuadraticSearchMiss(tested, totalText, exhausted);
+        }
+
+        searchQuadraticBtn.disabled = false;
+        state.quadraticSearchRunning = false;
+      }
+
+      function renderBasisTable(shortestData, gbData) {
+        const ids = shortestData.ids;
+        if (ids.length === 0) {
+          basisTable.innerHTML = '<div class="empty">No vertices yet.</div>';
+          return;
+        }
+
+        const pairMap = new Map();
+        shortestData.pairs.forEach((pair) => pairMap.set(`${pair.source}-${pair.target}`, pair));
+
+        const head = `<tr><th>from \\ to</th>${ids.map((id) => `<th>${id}</th>`).join("")}</tr>`;
+        const body = ids.map((source) => {
+          const cells = ids.map((target) => {
+            if (source === target) return `<td><code>1_${source}</code></td>`;
+            const pair = pairMap.get(`${source}-${target}`);
+            if (!pair || pair.distance === Infinity) return '<td class="cell-muted">0</td>';
+            const normalPath = gbData.normalMap.get(`${source}-${target}`);
+            const representative = normalPath ? pathLabel(normalPath) : "?";
+            const multi = pair.count > 1 ? `<div class="small">${pair.count >= 1000000 ? "many" : pair.count} shortest paths reduce here</div>` : "";
+            return `<td><code>${escapeHtml(representative)}</code>${multi}</td>`;
+          }).join("");
+          return `<tr><th>${source}</th>${cells}</tr>`;
+        }).join("");
+
+        basisTable.innerHTML = `<div class="table-wrap"><table>${head}${body}</table></div>`;
+      }
+
+      function renderQuiverSvg() {
+        const vertices = sortedVertices();
+        const edges = sortedEdges();
+        const marker = `
+          <defs>
+            <marker id="arrowHead" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L9,4.5 L0,9 z" fill="#2f80c9"></path>
+            </marker>
+          </defs>
+        `;
+        const edgeMarkup = edges.map((edge) => {
+          const u = vertexById(edge.u);
+          const v = vertexById(edge.v);
+          if (!u || !v) return "";
+          const low = edge.u < edge.v ? u : v;
+          const high = edge.u < edge.v ? v : u;
+          const dx = high.x - low.x;
+          const dy = high.y - low.y;
+          const length = Math.max(1, Math.hypot(dx, dy));
+          const nx = -dy / length;
+          const ny = dx / length;
+          const offset = 28;
+          const startA = offsetPoint(low, high, QUIVER_VERTEX_R + 6);
+          const endA = offsetPoint(high, low, QUIVER_VERTEX_R + 10);
+          const startB = offsetPoint(high, low, QUIVER_VERTEX_R + 6);
+          const endB = offsetPoint(low, high, QUIVER_VERTEX_R + 10);
+          const mx = (low.x + high.x) / 2;
+          const my = (low.y + high.y) / 2;
+          const c1a = { x: (low.x + high.x) / 2 + nx * offset, y: (low.y + high.y) / 2 + ny * offset };
+          const c1b = { x: (low.x + high.x) / 2 - nx * offset, y: (low.y + high.y) / 2 - ny * offset };
+          return `
+            <path d="M ${startA.x} ${startA.y} Q ${c1a.x} ${c1a.y} ${endA.x} ${endA.y}" fill="none" stroke="#2f80c9" stroke-width="2.2" marker-end="url(#arrowHead)"></path>
+            <path d="M ${startB.x} ${startB.y} Q ${c1b.x} ${c1b.y} ${endB.x} ${endB.y}" fill="none" stroke="#2f80c9" stroke-width="2.2" marker-end="url(#arrowHead)"></path>
+            <text x="${mx + nx * (offset + 11)}" y="${my + ny * (offset + 11)}" text-anchor="middle" dominant-baseline="middle" class="svg-label">${escapeHtml(edge.label)}</text>
+            <text x="${mx - nx * (offset + 11)}" y="${my - ny * (offset + 11)}" text-anchor="middle" dominant-baseline="middle" class="svg-label">${escapeHtml(edge.label)}'</text>
+          `;
+        }).join("");
+
+        const vertexMarkup = vertices.map((vertex) => `
+          <circle cx="${vertex.x}" cy="${vertex.y}" r="${QUIVER_VERTEX_R}" fill="#ffffff" stroke="#4aa3df" stroke-width="3"></circle>
+          <text x="${vertex.x}" y="${vertex.y + 1}" text-anchor="middle" dominant-baseline="middle" class="svg-vertex">${vertex.id}</text>
+        `).join("");
+
+        const style = `
+          <style>
+            .svg-label { font: 700 17px "Cascadia Mono", Consolas, monospace; fill: #1d1f23; paint-order: stroke; stroke: #fbfcfc; stroke-width: 5px; }
+            .svg-vertex { font: 760 20px Inter, "Segoe UI", sans-serif; fill: #1d1f23; }
+          </style>
+        `;
+
+        quiverSvg.innerHTML = `${marker}${style}${edgeMarkup}${vertexMarkup}`;
+      }
+
+      function offsetPoint(from, to, amount) {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        return {
+          x: from.x + (dx / len) * amount,
+          y: from.y + (dy / len) * amount
+        };
+      }
+
+      function getExportArrows() {
+        const arrows = [];
+        sortedEdges().forEach((edge) => {
+          if (!vertexById(edge.u) || !vertexById(edge.v)) return;
+          const low = Math.min(edge.u, edge.v);
+          const high = Math.max(edge.u, edge.v);
+          arrows.push({ name: edge.label, source: String(low), target: String(high) });
+          arrows.push({ name: `${edge.label}'`, source: String(high), target: String(low) });
+        });
+        return arrows;
+      }
+
+      function buildExportRelations(gbData) {
+        return gbData.gbItems.map((item) => {
+          const leading = pathLabelForExport(item.leadingPath);
+          if (item.type === "zero" || !item.normalPath) return `${leading} = 0`;
+          return `${leading} - ${pathLabelForExport(item.normalPath)} = 0`;
+        }).join("\n");
+      }
+
+      function nearestOpenTikzCell(startRow, startCol, occupied, rows, cols) {
+        const row0 = Math.max(1, Math.min(rows, startRow));
+        const col0 = Math.max(1, Math.min(cols, startCol));
+        const directKey = `${row0}-${col0}`;
+        if (!occupied.has(directKey)) return { row: row0, col: col0 };
+
+        const maxRadius = Math.max(rows, cols);
+        for (let radius = 1; radius <= maxRadius; radius += 1) {
+          let best = null;
+          for (let row = Math.max(1, row0 - radius); row <= Math.min(rows, row0 + radius); row += 1) {
+            for (let col = Math.max(1, col0 - radius); col <= Math.min(cols, col0 + radius); col += 1) {
+              if (Math.abs(row - row0) !== radius && Math.abs(col - col0) !== radius) continue;
+              const key = `${row}-${col}`;
+              if (occupied.has(key)) continue;
+              const score = Math.abs(row - row0) + Math.abs(col - col0);
+              if (!best || score < best.score || (score === best.score && row < best.row)) {
+                best = { row, col, score };
+              }
+            }
+          }
+          if (best) return { row: best.row, col: best.col };
+        }
+
+        return { row: row0, col: col0 };
+      }
+
+      function buildTikzcd(arrows) {
+        const vertices = sortedVertices();
+        const header = ["% Input quiver Q", "\\["];
+        const footer = ["\\end{tikzcd}", "\\]"];
+
+        if (vertices.length === 0) {
+          return [
+            ...header,
+            "\\begin{tikzcd}[column sep=large, row sep=large]",
+            ...footer
+          ].join("\n");
+        }
+
+        const rows = vertices.length <= 1 ? 1 : Math.ceil(Math.sqrt(vertices.length));
+        const cols = vertices.length <= 1 ? 1 : Math.ceil(vertices.length / rows) + 1;
+        const minX = Math.min(...vertices.map((vertex) => vertex.x));
+        const maxX = Math.max(...vertices.map((vertex) => vertex.x));
+        const minY = Math.min(...vertices.map((vertex) => vertex.y));
+        const maxY = Math.max(...vertices.map((vertex) => vertex.y));
+        const spanX = Math.max(1, maxX - minX);
+        const spanY = Math.max(1, maxY - minY);
+        const occupied = new Set();
+        const positions = new Map();
+        const cells = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""));
+
+        vertices.forEach((vertex) => {
+          const preferredCol = cols === 1 ? 1 : Math.round(((vertex.x - minX) / spanX) * (cols - 1)) + 1;
+          const preferredRow = rows === 1 ? 1 : Math.round(((vertex.y - minY) / spanY) * (rows - 1)) + 1;
+          const spot = nearestOpenTikzCell(preferredRow, preferredCol, occupied, rows, cols);
+          occupied.add(`${spot.row}-${spot.col}`);
+          positions.set(String(vertex.id), spot);
+          cells[spot.row - 1][spot.col - 1] = String(vertex.id);
+        });
+
+        const matrix = cells
+          .map((row) => row.map((cell) => cell || " ").join(" & "))
+          .join(" \\\\\n");
+        const arrowLines = arrows.map((arrow) => {
+          const from = positions.get(arrow.source);
+          const to = positions.get(arrow.target);
+          if (!from || !to) return "";
+          return `\\arrow[from=${from.row}-${from.col}, to=${to.row}-${to.col}, "{${arrow.name}}", bend left=18]`;
+        }).filter(Boolean);
+
+        return [
+          ...header,
+          "\\begin{tikzcd}[column sep=large, row sep=large]",
+          matrix,
+          ...arrowLines,
+          ...footer
+        ].join("\n");
+      }
+
+      function buildAlgebraExport() {
+        const adj = buildAdjacency();
+        const shortestData = getShortestPathData(adj);
+        const gbData = getGrobnerBasisData(shortestData, adj);
+        const vertices = sortedVertices().map((vertex) => String(vertex.id));
+        const arrows = getExportArrows();
+
+        return {
+          format: "anick-chain-calculator-quiver",
+          version: 1,
+          savedAt: new Date().toISOString(),
+          vertices,
+          arrows,
+          order: arrows.map((arrow) => arrow.name),
+          tikzcd: buildTikzcd(arrows),
+          relations: buildExportRelations(gbData),
+          draw: {
+            vertices: sortedVertices().map((vertex) => ({
+              id: String(vertex.id),
+              x: Math.round(vertex.x),
+              y: Math.round(vertex.y)
+            })),
+            arrows
+          }
+        };
+      }
+
+      function downloadTextFile(filename, text) {
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const urlApi = window.URL || window.webkitURL;
+        const url = urlApi.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.setTimeout(() => urlApi.revokeObjectURL(url), 0);
+      }
+
+      function saveAlgebraExport() {
+        if (state.vertices.length === 0) {
+          state.notice = "Add at least one vertex before saving.";
+          updateOutputs();
+          return;
+        }
+
+        const data = buildAlgebraExport();
+        const text = JSON.stringify(data, null, 2);
+        const filename = `anick-quiver-${data.savedAt.replaceAll(":", "-").replaceAll(".", "-")}.txt`;
+        try {
+          downloadTextFile(filename, text);
+          state.notice = `Download started: ${filename}`;
+        } catch (error) {
+          state.notice = "Save was blocked by the browser.";
+        }
+        updateOutputs();
+      }
+
+      function makeFormalText(shortestData, gbData, selfInjectiveData) {
+        const ids = shortestData.ids;
+        const edges = sortedEdges();
+        const q0 = ids.length ? `{${ids.join(", ")}}` : "empty";
+        const arrows = [];
+        edges.forEach((edge) => {
+          const low = Math.min(edge.u, edge.v);
+          const high = Math.max(edge.u, edge.v);
+          arrows.push(`${edge.label}: ${low}->${high}`);
+          arrows.push(`${edge.label}': ${high}->${low}`);
+        });
+
+        const lines = [];
+        lines.push(`Q0 = ${q0}`);
+        lines.push(`Q1 = ${arrows.length ? `{${arrows.join(", ")}}` : "empty"}`);
+        lines.push("");
+        lines.push("Admissible order:");
+        lines.push("length-lex with arrows ordered a > a' > b > b' > c > c' > ...");
+        lines.push("");
+        lines.push("Zero relations:");
+        lines.push("A nontrivial directed path from i to j is zero unless its length equals d(i,j).");
+        lines.push("Every nontrivial closed path is zero.");
+        lines.push("");
+        lines.push("Commutative relations:");
+        lines.push("All shortest directed paths with the same ordered endpoints are equal.");
+        lines.push("");
+        const exchangeLines = [];
+        let exchangeTruncated = false;
+        shortestData.pairs
+          .filter((pair) => pair.count > 1)
+          .forEach((pair) => {
+            const normalPath = gbData.normalMap.get(`${pair.source}-${pair.target}`);
+            if (!normalPath) return;
+            pair.paths.forEach((path) => {
+              if (pathKey(path) === pathKey(normalPath)) return;
+              exchangeLines.push(`${pair.source}->${pair.target}: ${pathLabel(path)} - ${pathLabel(normalPath)} = 0`);
+            });
+            if (pair.truncated) exchangeTruncated = true;
+          });
+        if (exchangeLines.length === 0) {
+          lines.push("(none)");
+        } else {
+          exchangeLines.forEach((item) => lines.push(item));
+          if (exchangeTruncated) lines.push("(some shortest paths were omitted)");
+        }
+
+        lines.push("");
+        lines.push("Reduced Grobner basis G:");
+        if (gbData.gbItems.length === 0) {
+          lines.push("(none)");
+        } else {
+          gbData.gbItems.forEach((item, index) => {
+            const leading = pathLabel(item.leadingPath);
+            const relation = item.type === "zero"
+              ? `${leading} = 0`
+              : `${leading} - ${pathLabel(item.normalPath)} = 0`;
+            lines.push(`g${index + 1}: ${relation}    LT=${leading}`);
+          });
+        }
+
+        lines.push("");
+        lines.push("Self-injective test:");
+        if (selfInjectiveData.selfInjective) {
+          const permutation = [...selfInjectiveData.nakayamaPermutation.entries()]
+            .map(([source, target]) => `${source}->${target}`)
+            .join(", ");
+          lines.push(`self-injective: yes`);
+          lines.push(`Nakayama permutation: ${permutation}`);
+        } else {
+          lines.push(`self-injective: no`);
+          lines.push(`reason: ${selfInjectiveData.reason}`);
+          if (selfInjectiveData.failedVertex) {
+            lines.push(`failed projective: P_${selfInjectiveData.failedVertex}`);
+            lines.push(`socle candidates: ${selfInjectiveData.socleSimples.join(", ") || "(none)"}`);
+          }
+          if (selfInjectiveData.missingSimples) {
+            lines.push(`missing simples: ${selfInjectiveData.missingSimples.join(", ")}`);
+          }
+        }
+
+        lines.push("");
+        lines.push("Nonzero path representatives after quotient:");
+        if (ids.length === 0) {
+          lines.push("(none)");
+        } else {
+          const pairMap = new Map(shortestData.pairs.map((pair) => [`${pair.source}-${pair.target}`, pair]));
+          ids.forEach((source) => {
+            ids.forEach((target) => {
+              if (source === target) {
+                lines.push(`${source}->${target}: 1_${source}`);
+                return;
+              }
+              const pair = pairMap.get(`${source}-${target}`);
+              if (!pair || pair.distance === Infinity) {
+                lines.push(`${source}->${target}: 0`);
+                return;
+              }
+              const normalPath = gbData.normalMap.get(`${source}-${target}`);
+              const countNote = pair.count > 1 ? ` (${pair.count >= 1000000 ? "many" : pair.count} shortest paths identified)` : "";
+              lines.push(`${source}->${target}: ${normalPath ? pathLabel(normalPath) : "?"}${countNote}`);
+            });
+          });
+        }
+
+        return lines.join("\n");
+      }
+
+      function updateOutputs() {
+        const adj = buildAdjacency();
+        const componentCount = connectedComponentCount(adj);
+        const shortestData = getShortestPathData(adj);
+        const gbData = getGrobnerBasisData(shortestData, adj);
+        const selfInjectiveData = selfInjectiveCriterion(shortestData.ids, adj);
+        const signature = graphSignature();
+        vertexCountEl.textContent = String(state.vertices.length);
+        edgeCountEl.textContent = String(state.edges.length);
+        componentCountEl.textContent = String(componentCount);
+        statusText.textContent = state.notice;
+        quiverSummary.textContent = `Q0 = ${state.vertices.length}, Q1 = ${state.edges.length * 2}`;
+        undoBtn.disabled = state.history.length === 0;
+        deleteBtn.disabled = state.selectedVertexId === null && state.selectedEdgeId === null;
+        clearBtn.disabled = state.vertices.length === 0 && state.edges.length === 0;
+        saveBtn.disabled = state.vertices.length === 0;
+
+        renderQuiverSvg();
+        renderRelations(shortestData, gbData);
+        renderGrobnerBasis(gbData);
+        renderSelfInjectiveTest(selfInjectiveData);
+        renderBasisTable(shortestData, gbData);
+        formalText.value = makeFormalText(shortestData, gbData, selfInjectiveData);
+        resetQuadraticSearchIfStale(signature);
+      }
+
+      function update() {
+        draw();
+        updateOutputs();
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        const point = pointFromEvent(event);
+        const vertex = vertexAt(point);
+        const edge = vertex ? null : edgeAt(point);
+        pointer = {
+          start: point,
+          last: point,
+          type: vertex ? "vertex" : edge ? "edge" : "blank",
+          id: vertex ? vertex.id : edge ? edge.id : null,
+          moved: false,
+          historyPushed: false,
+          pointerId: event.pointerId
+        };
+        canvas.setPointerCapture(event.pointerId);
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        const point = pointFromEvent(event);
+        if (pointer && pointer.type === "vertex") {
+          const moveDistance = distance(pointer.start, point);
+          if (moveDistance > 4) {
+            if (!pointer.historyPushed) {
+              pushHistory();
+              pointer.historyPushed = true;
+            }
+            pointer.moved = true;
+            const vertex = vertexById(pointer.id);
+            if (vertex) {
+              vertex.x = Math.max(EDITOR_VERTEX_R + 8, Math.min(CANVAS_W - EDITOR_VERTEX_R - 8, point.x));
+              vertex.y = Math.max(EDITOR_VERTEX_R + 8, Math.min(CANVAS_H - EDITOR_VERTEX_R - 8, point.y));
+              state.selectedVertexId = vertex.id;
+              state.selectedEdgeId = null;
+              state.notice = `Moving vertex ${vertex.id}.`;
+              draw();
+              updateOutputs();
+            }
+          }
+          pointer.last = point;
+          return;
+        }
+
+        const vertex = vertexAt(point);
+        const edge = vertex ? null : edgeAt(point);
+        const hover = vertex ? { type: "vertex", id: vertex.id } : edge ? { type: "edge", id: edge.id } : null;
+        const changed = JSON.stringify(hover) !== JSON.stringify(state.hover);
+        if (changed) {
+          state.hover = hover;
+          draw();
+        }
+      });
+
+      canvas.addEventListener("pointerup", (event) => {
+        const point = pointFromEvent(event);
+        if (!pointer) return;
+        try {
+          canvas.releasePointerCapture(pointer.pointerId);
+        } catch (error) {
+          // The browser may already have released capture after a quick tap.
+        }
+
+        if (pointer.type === "vertex") {
+          if (pointer.moved) {
+            const vertex = vertexById(pointer.id);
+            state.notice = vertex ? `Moved vertex ${vertex.id}.` : "Moved vertex.";
+            update();
+          } else {
+            handleVertexClick(pointer.id);
+          }
+        } else if (pointer.type === "edge") {
+          state.selectedVertexId = null;
+          state.selectedEdgeId = pointer.id;
+          const edge = edgeById(pointer.id);
+          state.notice = edge ? `Selected edge ${edge.label}.` : "Selected an edge.";
+          update();
+        } else {
+          addVertex(point);
+        }
+
+        pointer = null;
+      });
+
+      canvas.addEventListener("pointerleave", () => {
+        if (!pointer) {
+          state.hover = null;
+          draw();
+        }
+      });
+
+      undoBtn.addEventListener("click", () => {
+        const snapshot = state.history.pop();
+        if (snapshot) restoreGraphState(snapshot);
+      });
+
+      deleteBtn.addEventListener("click", deleteSelected);
+      clearBtn.addEventListener("click", clearGraph);
+      sampleBtn.addEventListener("click", loadSample);
+      enneaLeftBtn.addEventListener("click", loadEnneahedronLeft);
+      enneaRightBtn.addEventListener("click", loadEnneahedronRight);
+      searchQuadraticBtn.addEventListener("click", runQuadraticOrderSearch);
+      saveBtn.addEventListener("click", saveAlgebraExport);
+
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(formalText.value);
+          const old = state.notice;
+          state.notice = "Output copied.";
+          updateOutputs();
+          window.setTimeout(() => {
+            state.notice = old;
+            updateOutputs();
+          }, 1200);
+        } catch (error) {
+          formalText.focus();
+          formalText.select();
+          state.notice = "Copy was blocked; the output text is selected.";
+          updateOutputs();
+        }
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          state.selectedVertexId = null;
+          state.selectedEdgeId = null;
+          state.notice = `Ready to add vertex ${state.nextVertexId}.`;
+          update();
+        }
+        if ((event.key === "Backspace" || event.key === "Delete") && document.activeElement !== formalText) {
+          if (state.selectedVertexId !== null || state.selectedEdgeId !== null) {
+            event.preventDefault();
+            deleteSelected();
+          }
+        }
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>
